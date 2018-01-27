@@ -1,0 +1,147 @@
+---
+title: "Lab 1 Cancer EDA"
+author: "Daniel Rasband, Subha Vadakkumkoor, Hong Yang"
+date: \today
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem Set
+
+We were hired by a health government agency to understand and predict cancer mortality rates:
+
+1. Understand factors that predict cancer mortality rates
+2. Identity communities for social interventions
+3. Understand which interventions are likely to have the impact
+
+### Objective of this Lab
+
+Perform an exploratory analysis to understand how county-level characteristics are related to cancer mortality.
+
+## Data Set
+
+```{r load}
+canc.dat <- read.csv('cancer.csv', header = TRUE)
+```
+
+### Summary
+
+```{r}
+summary(canc.dat)
+```
+
+### Variables
+
+```{r}
+names(canc.dat)
+```
+
+#### Meanings
+
+The X column appears to be a simple auto-incremented ID, so it is ignored. We are assuming that the rest of the columns have the following meanings. If these assumptions prove to be incorrect, the analysis may also be incorrect.
+
+* `avgAnnCount`: Average cancer total incidences per year from 2009-2013.
+* `medIncome`: Median Income
+* `popEst2015`: Estimated population in 2015
+* `povertyPercent`: Percentage of population below poverty level
+* `binnedInc`: Income range
+* `MedianAge`: Median Age
+* `MedianAgeMale`: Median Age of Males
+* `MedianAgeFemale`: Median Age of Females
+* `Geography`: County, State
+* `AvgHouseholdSize`: Average Household Size
+* `PercentMarried`: Percent of population that is married
+* `PctNoHS18_24`: Percent of population, ages 18-24, that hasn't graduated from high school.
+* `PctHS18_24`: Percent of population, ages 18-24, that has graduated from high school.
+* `PctSomeCol18_24`: Percentage of 18-24-year-olds that have some college education.
+* `PctBachDeg18_24`: Percentage of 18-24-year-olds that have a bachelor's degree.
+* `PctHS25_Over`: Percentage of population, 25 and older, graduated from high school.
+* `PctBachDeg25_Over`: Percentage of population, 25 and older, graduated from college.
+* `PctEmployed16_Over`: Percentage of population, 16 and older, that is employed.
+* `PctUnemployed16_Over`: Percentage of population, 16 and older, that is unemployed.
+* `PctPrivateCoverage`: Percentage of population with private insurance coverage.
+* `PctEmpPrivCoverage`: Percentage of population with private insurance coverage from employment.
+* `PctPublicCoverage`: Percentage of population with public insurance coverage.
+* `PctWhite`: Percentage of population that is white.
+* `PctBlack`: Percentage of population that is black.
+* `PctAsian`: Percentage of population that is asian.
+* `PctOtherRace`: Percentage of population that is not white, black, or asian.
+* `PctMarriedHouseholds`: Percentage of the population that is in a married household.
+* `BirthRate`: The birth rate, unknown basis.
+* `deathRate`: The death rate, per 100,000 people.
+
+The most questionable of the above assumptions is that of the `deathRate`, but comparing the numbers with those in [a PDF of death-related statistics for Los Angeles county](http://publichealth.lacounty.gov/dca/data/documents/mortalitypresentation2012.pdf), and by using a bit of common sense, it appears that the rate is per 100,000 people. The birth rate is similarly questionable, but by using Los Angeles's data, it appears that the number is per 100 women, 15-44. This could be a bit of a problem since we don't know the population of women in that age range, except that we will not be using that data point in this exploratory analysis, so we will ignore it.
+
+Another fundamentally questionable aspect of the data is that most data points do not have a reference year. We are assuming 2015 for those data, but that may not be accurate.
+
+### Number of Observations
+
+There are 3047 observations in the data set.
+
+```{r}
+nrow(canc.dat)
+```
+
+The number of counties equals the number of observations, so no county has multiple rows of data.
+
+```{r}
+length(unique(canc.dat$Geography)) == nrow(canc.dat)
+```
+
+## Data Cleaning
+
+While perusing the data, we have found that there are some pieces that need to be cleaned up. First of all, the `avgAnnCount` has 206 rows that are 1) the exact same number, and 2) greater than the actual population. This indicates to us that those values were missing from the data and had been assigned a default value (`1962.668`). Because the `avgAnnCount` is crucial to this analysis, and those values have proven nonsensical, we will have to remove them:
+
+```{r}
+canc.dat[canc.dat$avgAnnCount > canc.dat$popEst2015, c('X', 'avgAnnCount')]
+```
+
+```{r}
+fixed.dat <- subset(canc.dat, avgAnnCount != canc.dat$avgAnnCount[116])
+nrow(fixed.dat)
+```
+
+The `PctSomeCol18_24` variable has a large majority of missing values, so we are opting to remove the column entirely for the dataset. This has potential to make it more difficult to find correlation between cancer death rates and educational status, but the data is too sparse to use.
+
+```{r}
+fixed.dat = subset(fixed.dat, select = -c(PctSomeCol18_24))
+names(fixed.dat)
+```
+
+Lastly, it appears that `MedianAge` is set to months, rather than years, in a number of cases, so we adjust those rows:
+
+```{r}
+outrageous.ages = fixed.dat$MedianAge > 100
+fixed.dat$MedianAge[outrageous.ages] = fixed.dat$MedianAge[outrageous.ages] / 12
+# Sanity check
+summary(fixed.dat$MedianAge, fixed.dat$MedianAgeFemale, fixed.dat$MedianAgeMale)
+```
+
+## Extra Variables
+
+Our task is to look for correlations between cancer death rate and other factors, but cancer death rate is not given. This is the biggest issue with the data and our assumption here greatly reduces the effectiveness of the exploratory data analysis. Our effort here will be to compute the rate of cancer incidents to deaths, and use that as a measure of approximately how frequent cancer causes death.
+
+```{r}
+# The percentage of the population that had cancer. This may be flawed, because some people may have been diagnosed twice or more.
+fixed.dat$cancerRate = fixed.dat$avgAnnCount / fixed.dat$popEst2015
+summary(fixed.dat$cancerRate)
+```
+
+Low and high percentages of cancer rates are something to certainly something to look into further.
+
+```{r}
+# The percentage of each population that died.
+fixed.dat$realDeathRate = fixed.dat$deathRate / 100000
+summary(fixed.dat$realDeathRate)
+```
+
+```{r}
+# The ratio of cancer incidents to deaths
+fixed.dat$cancerToDeathRate = fixed.dat$cancerRate / fixed.dat$realDeathRate
+summary(fixed.dat$cancerToDeathRate)
+```
+
+This measurement indicates a lower number of deaths per cancer incident when the ratio is high. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
