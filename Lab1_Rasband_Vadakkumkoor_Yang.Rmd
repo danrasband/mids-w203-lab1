@@ -131,7 +131,11 @@ fixed.dat$cancerRate = fixed.dat$avgAnnCount / fixed.dat$popEst2015
 summary(fixed.dat$cancerRate)
 ```
 
-Low and high percentages of cancer rates are something to certainly something to look into further.
+Cancer incidents are very strongly correlated with populations, which means that the more people, the more cancer incidents.
+
+```{r}
+cor(fixed.dat$avgAnnCount, fixed.dat$popEst2015)
+```
 
 ```{r}
 # The percentage of each population that died.
@@ -145,4 +149,4 @@ fixed.dat$deathToCancerRate = fixed.dat$realDeathRate / fixed.dat$cancerRate
 summary(fixed.dat$deathToCancerRate)
 ```
 
-This measurement indicates a lower number of deaths per cancer incident when the ratio is high. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
+This measurement indicates a lower number of deaths per cancer incident when the ratio is low relative to other counties. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
