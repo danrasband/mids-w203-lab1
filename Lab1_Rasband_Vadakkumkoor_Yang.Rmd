@@ -115,8 +115,8 @@ names(fixed.dat)
 Lastly, it appears that `MedianAge` is set to months, rather than years, in a number of cases, so we adjust those rows:
 
 ```{r}
-outrageous.ages = fixed.dat$MedianAge > 100
-fixed.dat$MedianAge[outrageous.ages] = fixed.dat$MedianAge[outrageous.ages] / 12
+age.outliers = fixed.dat$MedianAge > 100
+fixed.dat$MedianAge[age.outliers] = fixed.dat$MedianAge[age.outliers] / 12
 # Sanity check
 summary(fixed.dat$MedianAge, fixed.dat$MedianAgeFemale, fixed.dat$MedianAgeMale)
 ```
@@ -140,9 +140,9 @@ summary(fixed.dat$realDeathRate)
 ```
 
 ```{r}
-# The ratio of cancer incidents to deaths
-fixed.dat$cancerToDeathRate = fixed.dat$cancerRate / fixed.dat$realDeathRate
-summary(fixed.dat$cancerToDeathRate)
+# The ratio of deaths (of any kind) to cancer incidents
+fixed.dat$deathToCancerRate = fixed.dat$realDeathRate / fixed.dat$cancerRate
+summary(fixed.dat$deathToCancerRate)
 ```
 
 This measurement indicates a lower number of deaths per cancer incident when the ratio is high. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
