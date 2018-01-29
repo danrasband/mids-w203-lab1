@@ -150,3 +150,123 @@ summary(fixed.dat$deathToCancerRate)
 ```
 
 This measurement indicates a lower number of deaths per cancer incident when the ratio is low relative to other counties. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
+
+## Exploration
+
+### Coorelation between cancerRate and realDeathRate
+
+Since there is not a clear defined cancer death rate, we used cancerRate to compare with realDeathRate to establish the coorelation "when cancerRate is increasing, realDeathRate is increasing".  Again, this is base on the data we have been given, we are aware of that not every cancer incident results in death.
+
+```{r}
+scatterplotMatrix(~ cancerRate + realDeathRate, data = fixed.dat)
+```
+
+### Income / Poverty & Insurance Coverage
+
+When cancerRate is high, PctPublicCoverage is high and medIncome is relativly low, we will further examine them.  We also noticed that public coverage and private coverage seem mutually exclusive.
+
+```{r}
+cor(fixed.dat[ , c("cancerRate","PctPrivateCoverage","PctPublicCoverage","povertyPercent", "medIncome")], use = "complete.obs")
+```
+
+This initial examination shows there are indication that PctPublicCoverage and medIncome have impact on cancerRate, especailly few outliers.  Other variables don't have much strong impact from these plots.  We will examine further.
+
+```{r}
+hist(fixed.dat$cancerRate, main = "Cancer Rate", xlab = NULL)
+```
+
+```{r}
+boxplot(fixed.dat$cancerRate ~ fixed.dat$PctPublicCoverage,
+        main = "Public Insurance Coverage vs Cancer Rate",
+        xlab = "% Public Coverage",
+        ylab = "Cancer Rate")
+```
+
+```{r}
+boxplot(fixed.dat$cancerRate ~ fixed.dat$medIncome, main = "Median Income vs Cancer Rate", xlab = "Median Income", ylab = "Cancer Rate")
+```
+
+```{r}
+plot(fixed.dat$PctPublicCoverage, main = "Public Insurance Coverage")
+```
+
+```{r}
+plot(fixed.dat$PctPrivateCoverage, main = "Private Insurance Coverage")
+```
+
+```{r}
+hist(fixed.dat$povertyPercent, breaks = 10, xlab = NULL, main = "Poverty Percentage")
+```
+
+Based on the fact that we are examine the variables which are impacting high cancer rate, we will take a closer look at the data for avgAnnCount greater than 250. 250 cancer incidents per county anually is still relatively high, we pick this number because it's between median and mean and closer to median. The mean is much higher than the median indicates the one plus few more extreamly high cancer incident numbers, by selecting the data above the mean will miss the chance with most representative data.
+
+```{r}
+summary(fixed.dat$avgAnnCount)
+```
+
+```{r}
+highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250,c("avgAnnCount", "cancerRate", "Geography", "medIncome", "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", "AvgHouseholdSize", "deathToCancerRate")]
+nrow(highInc.dat)
+```
+
+Lower medIncome and higher PctPublicCoverage have the most impact on cancerRate.  Public incurance often have limited coverage for cancer treatment.  Private coverage doesn't seem to have strong impact on cancerRate as well as povertyPercent.
+
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$medIncome,
+     main = "Median Income to Cancer Rate",
+     xlab = "Median Income",
+     ylab = "Cancer Rate",
+     las = 1,
+     xlim = c(120000, 30000),
+     col = 4)
+abline(lm(highInc.dat$cancerRate ~ highInc.dat$medIncome), col = 2)
+```
+
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$PctPublicCoverage,
+     main = "Public Insurance Coverage vs Cancer Rate",
+     xlab = "Public Coverage %",
+     ylab = "Cancer Rate",
+     col = 4)
+abline(lm(highInc.dat$cancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
+```
+
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$PctPrivateCoverage,
+     main = "Private Insurance Coverage vs Cancer Rate",
+     xlab = "Private Coverage %",
+     ylab = "Cancer Rate",
+     col = 4)
+abline(lm(highInc.dat$cancerRate ~ highInc.dat$PctPrivateCoverage), col = 2)
+```
+
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$povertyPercent,
+     main = "Poverty to Cancer Rate",
+     xlab = "Poverty %",
+     ylab = "Cancer Rate",
+     col = 4)
+abline(lm(highInc.dat$cancerRate ~ highInc.dat$povertyPercent), col = 2)
+```
+
+Now let's examine deathToCancerRate with medIncome and PctPublicCoverage.  The results are little lesser impact compare to the previous plots.  Since the data are not giving cancer motality, this results suggest there are other factors to death rate, but medIncome and PctPublicCoverage are still impacting number of cancer incident per county.
+
+```{r}
+plot(highInc.dat$deathToCancerRate ~ highInc.dat$medIncome,
+     main = "Median Income to Cancer to Death Rate",
+     xlab = "Median Income",
+     ylab = "Cancer to Death Rate",
+     las = 1,
+     xlim = c(120000, 30000),
+     col = 4)
+abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$medIncome), col = 2)
+```
+
+```{r}
+plot(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage,
+     main = "Public Insurance Coverage vs Cancer to Death Rate",
+     xlab = "Public Coverage %",
+     ylab = "Cancer to Death Rate",
+     col = 4)
+abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
+```
