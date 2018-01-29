@@ -312,7 +312,7 @@ Percentage fields related to race are mutually exhaustive and show that data is 
 nrow(subset(fixed.dat, (100-fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$OtherRate)<0))
 ```
 
-## Exploring relationship between variables with cancer mortality
+#### Exploring relationship between variables with cancer mortality
 
 To get a better understanding of the data in hand and how the different variables are related to each other (and cancer death rate), we do a correlation analysis. Below is a short summary
 
@@ -331,7 +331,8 @@ library(corrplot)
 corrplot(coeff)
 ```
 
-## Impact of race related variables on cancer death rate
+#### Impact of race related variables on cancer death rate
+
 PctWhite and PctBlack are very highly correlated (over 0.8). We can check impact of anyone here PctWhite as PctWhite and PctBlack are the two top groups. Created an indicator to separate population with with less than 40 pct white vs 40 or more pct White. Comparing average cancer death rate between these two we see that population with less than 40pct White have higher cancer death rate (0.439) compared to that of population with over 40pct White (0.338).
 
 ```{r}
@@ -344,9 +345,9 @@ fixed.dat$Atleast_40pct_White[fixed.dat$PctWhite<40]<-0
 aggregate(fixed.dat$chosen_field,list(fixed.dat$Atleast_40pct_White),mean)
 ```
 
-## Impact of education related variables on cancer death rate
-Looking at scatter plots and corelations, it does not seem like education has any key role in influencing cancer death rates. There may be an indirect way of how higher education would mean a higher income and better insurance, but that is not captured in the relationship between the education fields and the cancer death rate
+#### Impact of education related variables on cancer death rate
 
+Looking at scatter plots and corelations, it does not seem like education has any key role in influencing cancer death rates. There may be an indirect way of how higher education would mean a higher income and better insurance, but that is not captured in the relationship between the education fields and the cancer death rate
 
 ```{r}
 edu_fields<-c("PctBachDeg25_Over","PctNoHS18_24","PctNoHS18_24","PctHS18_24","PctBachDeg18_24","PctHS25_Over")
