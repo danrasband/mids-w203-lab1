@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(car)
+library(corrplot)
 ```
 
 ## Problem Set
@@ -149,18 +150,6 @@ fixed.dat$deathToCancerRate = fixed.dat$realDeathRate / fixed.dat$cancerRate
 summary(fixed.dat$deathToCancerRate)
 ```
 
-This measurement indicates a lower number of deaths per cancer incident when the ratio is low relative to other counties. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
-
-## Exploration
-
-### Coorelation between cancerRate and realDeathRate
-
-Since there is not a clear defined cancer death rate, we used cancerRate to compare with realDeathRate to establish the coorelation "when cancerRate is increasing, realDeathRate is increasing".  Again, this is base on the data we have been given, we are aware of that not every cancer incident results in death.
-
-```{r}
-scatterplotMatrix(~ cancerRate + realDeathRate, data = fixed.dat)
-```
-
 ### Income / Poverty & Insurance Coverage
 
 When cancerRate is high, PctPublicCoverage is high and medIncome is relativly low, we will further examine them.  We also noticed that public coverage and private coverage seem mutually exclusive.
@@ -269,6 +258,7 @@ plot(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage,
      ylab = "Cancer to Death Rate",
      col = 4)
 abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
+```
 
 ### Employment & Race
 
@@ -327,7 +317,6 @@ To get a better understanding of the data in hand and how the different variable
 ```{r}
 numeric_cols<-sapply(fixed.dat, is.numeric)
 coeff<-round(corr_coeff<-cor(fixed.dat[,numeric_cols],use="pairwise.complete.obs"),3)
-library(corrplot)
 corrplot(coeff)
 ```
 
@@ -354,3 +343,76 @@ edu_fields<-c("PctBachDeg25_Over","PctNoHS18_24","PctNoHS18_24","PctHS18_24","Pc
 scatterplotMatrix(~ chosen_field + PctBachDeg25_Over + PctNoHS18_24 + PctHS18_24 + PctBachDeg18_24 + PctHS25_Over  , data = fixed.dat)
 round(cor(fixed.dat$chosen_field,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
 ```
+
+### Family Structure
+
+There are two three variables related to family structure: `AvgHouseholdSize`, `PercentMarried`, `PctMarriedHouseholds`.
+
+```{r}
+# Look for outliers
+boxplot(fixed.dat$AvgHouseholdSize)
+```
+
+Average household size is close 0 for many observations, but really these numbers shouldn't be less than 1. Instead of making some assumption about what the reasoning is for these numbers, we can remove them from this particular set of analyses.
+
+```{r}
+household.dat <- subset(fixed.dat, AvgHouseholdSize >= 1)
+boxplot(household.dat$AvgHouseholdSize)
+```
+
+```{r}
+scatterplotMatrix(~ cancerRate + deathToCancerRate + AvgHouseholdSize,
+                  data = household.dat)
+```
+
+It appears that both cancer rates decrease and death to cancer rates increase with increases in household size.
+
+```{r}
+cor(household.dat$cancerRate, household.dat$AvgHouseholdSize)
+```
+
+```{r}
+cor(household.dat$deathToCancerRate, household.dat$AvgHouseholdSize)
+```
+
+What does this mean? It _could_ mean that there are fewer incidents of cancer in larger households. This is most likely because larger households on average means younger people. Let's test that assumption.
+
+```{r}
+scatterplotMatrix(~ AvgHouseholdSize + MedianAge, data = household.dat)
+```
+
+This is reasonably well correlated:
+
+```{r}
+cor(household.dat$AvgHouseholdSize, household.dat$MedianAge)
+```
+
+Based on that correlation, it can't be said that household size alone contributes to lower rates of cancer. Interestingly, the ratio of death to cancer increases with larger household sizes. What could explain this? It could be that there are more deaths unrelated to cancer with younger groups. This seems feasible, since younger groups of people are less likely to have routine, easily detectable cancer.
+
+What about marriage?
+
+```{r}
+scatterplotMatrix(~ cancerRate + deathToCancerRate + PercentMarried, data = fixed.dat)
+```
+
+```{r}
+cor(fixed.dat$cancerRate, fixed.dat$PercentMarried)
+```
+
+```{r}
+cor(fixed.dat$deathToCancerRate, fixed.dat$PercentMarried)
+```
+
+The correlation between percent married and cancer rate is only ~0.2. There may be something here, but it's pretty weak. The correllation between the death to cancer rate and percent married is slightly higher, at -0.34. This could mean that there is a slight tendency for a lower incidence of cancer mortality for married couples. This could possibly be explained by earlier detection, stronger motivation in the form of spousal urging to take early and strong action to conquer the cancer, etc. Could there be any confounding factors, such as the age of the population?
+
+```{r}
+scatterplotMatrix(~ deathToCancerRate + PercentMarried + MedianAge, data = fixed.dat)
+```
+
+It appears that median age percent married are positively correlated, more so than death to cancer rate and percent married.
+
+```{r}
+cor(fixed.dat$PercentMarried, fixed.dat$MedianAge)
+```
+
+Again, as ages increase, the percentage of married people increases, so the two are dependent, and cancer mortality rates can't necessarily be attributed to marriage or age alone.
