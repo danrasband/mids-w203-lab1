@@ -151,6 +151,24 @@ summary(fixed.dat$deathToCancerRate)
 
 This measurement indicates a lower number of deaths per cancer incident when the ratio is low relative to other counties. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
 
+### Different ways to approximate cancer-death relationship
+
+```{r}
+fixed.dat$cancerToDeathRate = fixed.dat$cancerRate / fixed.dat$realDeathRate
+fixed.dat$DeathToCancerRate = 1/fixed.dat$cancerToDeathRate
+summary(fixed.dat$cancerToDeathRate)
+summary(fixed.dat$DeathToCancerRate)
+```
+
+Looking at probabilities, although here we can't say that cause of death was cancer. We define cancer mortality rate as number of deaths due to cancer (or closest possible approximation) per 100,000 population
+
+```{r}
+fixed.dat$prob_of_cancer_and_death = (fixed.dat$avgAnnCount/fixed.dat$popEst2015) *
+  ((fixed.dat$popEst2015 * fixed.dat$deathRate/100000)/fixed.dat$popEst2015)
+fixed.dat$cancer_mortality_rate=100000*(fixed.dat$prob_of_cancer_and_death * fixed.dat$popEst2015)/fixed.dat$popEst2015
+summary(fixed.dat$cancer_mortality_rate)
+```
+
 ## Exploration
 
 ### Coorelation between cancerRate and realDeathRate
@@ -269,4 +287,87 @@ plot(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage,
      ylab = "Cancer to Death Rate",
      col = 4)
 abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
+
+### Employment & Race
+
+Need to add imputation of missing values of field PctEmployed16_Over.
+Looks like PctSomeCol18_24 has text "NA" as opposed to N/A.
+
+##  Data Understanding and Sanity checks
+
+There are no cases where avgConnCount is greater than the population. Although avgAnnCount is from 2009-2013 and popEst2015 is from 2015, this provides better confidence in the avgConnCount field
+
+```{r}
+nrow(subset(fixed.dat,avgAnnCount>popEst2015))
+```
+
+There are several values of binnedInc and Geography that average of cancer counts or death rates cannot be calculated for each group as is.
+
+```{r}
+length(fixed.dat$binnedInc)
+```
+
+Histograms of all numeric fields are plotted below.
+
+```{r}
+numeric_columns <- sapply(fixed.dat, is.numeric)
+data_to_plot <- names(fixed.dat[,numeric_columns])
+for (var in data_to_plot)
+{
+  hist(fixed.dat[ , var],main=var)
+}
+```
+
+Create indicator for population percent without public or private insurance
+
+```{r}
+fixed.dat$No_insurance<-100-(fixed.dat$PctPrivateCoverage+fixed.dat$PctPublicCoverage)
+```
+
+Percentage fields related to race are mutually exhaustive and show that data is complete in this regard
+
+```{r}
+nrow(subset(fixed.dat, (100-fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$OtherRate)<0))
+```
+
+## Exploring relationship between variables with cancer mortality
+
+To get a better understanding of the data in hand and how the different variables are related to each other (and cancer death rate), we do a correlation analysis. Below is a short summary
+
+1. avgAnnCount is highly correlated to popEst2015 (0.98)
+2. medIncome is  correlated negatively to povertyPercent (-0.78) and PctPublicCoverage, and positively correlated to PctBachDeg25_Over,  PctEmployed16_Over, PctPrivateCoverage, PctEmpPrivCoverage (~0.7). These make intuitive sense.
+3. MedianAge, MedianAgeMale and MedianAgeFemale are all highly correlated to each other, with over 0.9 Rsquared
+4. povertyPercent is negatively correlated to PercentMarried and PercentMarriedHouseholds with an R-square of -0.6
+5. PctBachDeg25_Over and PctBachDeg18_24 are positively correlated at 0.6 R-square
+6. PctHS25_Over and PctBachDeg25_Over are negatively correlated with -0.6 R-square. This is not intuitive
+7. PctMarried is positively correlated with PctWhite and negatively with PctBlack
+
+```{r}
+numeric_cols<-sapply(fixed.dat, is.numeric)
+coeff<-round(corr_coeff<-cor(fixed.dat[,numeric_cols],use="pairwise.complete.obs"),3)
+library(corrplot)
+corrplot(coeff)
+```
+
+## Impact of race related variables on cancer death rate
+PctWhite and PctBlack are very highly correlated (over 0.8). We can check impact of anyone here PctWhite as PctWhite and PctBlack are the two top groups. Created an indicator to separate population with with less than 40 pct white vs 40 or more pct White. Comparing average cancer death rate between these two we see that population with less than 40pct White have higher cancer death rate (0.439) compared to that of population with over 40pct White (0.338).
+
+```{r}
+fixed.dat$chosen_field<-fixed.dat$DeathToCancerRate
+library(car)
+scatterplotMatrix(~ fixed.dat$chosen_field + fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$PctOther)
+plot(fixed.dat$PctWhite,fixed.dat$chosen_field,main="CancerDeathRate by PctWhite")
+fixed.dat$Atleast_40pct_White<-1
+fixed.dat$Atleast_40pct_White[fixed.dat$PctWhite<40]<-0
+aggregate(fixed.dat$chosen_field,list(fixed.dat$Atleast_40pct_White),mean)
+```
+
+## Impact of education related variables on cancer death rate
+Looking at scatter plots and corelations, it does not seem like education has any key role in influencing cancer death rates. There may be an indirect way of how higher education would mean a higher income and better insurance, but that is not captured in the relationship between the education fields and the cancer death rate
+
+
+```{r}
+edu_fields<-c("PctBachDeg25_Over","PctNoHS18_24","PctNoHS18_24","PctHS18_24","PctBachDeg18_24","PctHS25_Over")
+scatterplotMatrix(~ chosen_field + PctBachDeg25_Over + PctNoHS18_24 + PctHS18_24 + PctBachDeg18_24 + PctHS25_Over  , data = fixed.dat)
+round(cor(fixed.dat$chosen_field,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
 ```
