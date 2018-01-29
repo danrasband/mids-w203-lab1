@@ -158,7 +158,7 @@ This measurement indicates a lower number of deaths per cancer incident when the
 Since there is not a clear defined cancer death rate, we used cancerRate to compare with realDeathRate to establish the coorelation "when cancerRate is increasing, realDeathRate is increasing".  Again, this is base on the data we have been given, we are aware of that not every cancer incident results in death.
 
 ```{r}
-scatterplotMatrix(~ fixed.dat$cancerRate + fixed.dat$realDeathRate, data = fixed.dat)
+scatterplotMatrix(~ cancerRate + realDeathRate, data = fixed.dat)
 ```
 
 ### Income / Poverty & Insurance Coverage
@@ -173,12 +173,28 @@ This initial examination shows there are indication that PctPublicCoverage and m
 
 ```{r}
 hist(fixed.dat$cancerRate, main = "Cancer Rate", xlab = NULL)
-boxplot(fixed.dat$cancerRate ~ fixed.dat$PctPublicCoverage, main = "Public Insurance Coverage vs Cancer Rate", xlab = "% Public Coverage", ylab = "Cancer Rate")
+```
+
+```{r}
+boxplot(fixed.dat$cancerRate ~ fixed.dat$PctPublicCoverage,
+        main = "Public Insurance Coverage vs Cancer Rate",
+        xlab = "% Public Coverage",
+        ylab = "Cancer Rate")
+```
+
+```{r}
 boxplot(fixed.dat$cancerRate ~ fixed.dat$medIncome, main = "Median Income vs Cancer Rate", xlab = "Median Income", ylab = "Cancer Rate")
+```
 
+```{r}
 plot(fixed.dat$PctPublicCoverage, main = "Public Insurance Coverage")
-plot(fixed.dat$PctPrivateCoverage, main = "Private Insurance Coverage")
+```
 
+```{r}
+plot(fixed.dat$PctPrivateCoverage, main = "Private Insurance Coverage")
+```
+
+```{r}
 hist(fixed.dat$povertyPercent, breaks = 10, xlab = NULL, main = "Poverty Percentage")
 ```
 
@@ -186,35 +202,71 @@ Based on the fact that we are examine the variables which are impacting high can
 
 ```{r}
 summary(fixed.dat$avgAnnCount)
+```
 
-highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250,c("avgAnnCount", "cancerRate", "Geography", "medIncome", "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", "AvgHouseholdSize", "cancerToDeathRate")]
-highInc.dat
-
+```{r}
+highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250,c("avgAnnCount", "cancerRate", "Geography", "medIncome", "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", "AvgHouseholdSize", "deathToCancerRate")]
 nrow(highInc.dat)
 ```
 
 Lower medIncome and higher PctPublicCoverage have the most impact on cancerRate.  Public incurance often have limited coverage for cancer treatment.  Private coverage doesn't seem to have strong impact on cancerRate as well as povertyPercent.
 
 ```{r}
-plot(highInc.dat$cancerRate ~ highInc.dat$medIncome, main = "Median Income to Cancer Rate", xlab = "Median Income", ylab = "Cancer Rate", las = 1, xlim = c(120000, 30000), col = 4)
+plot(highInc.dat$cancerRate ~ highInc.dat$medIncome,
+     main = "Median Income to Cancer Rate",
+     xlab = "Median Income",
+     ylab = "Cancer Rate",
+     las = 1,
+     xlim = c(120000, 30000),
+     col = 4)
 abline(lm(highInc.dat$cancerRate ~ highInc.dat$medIncome), col = 2)
+```
 
-plot(highInc.dat$cancerRate ~ highInc.dat$PctPublicCoverage, main = "Public Insurance Coverage vs Cancer Rate", xlab = "Public Coverage %", ylab = "Cancer Rate", col = 4)
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$PctPublicCoverage,
+     main = "Public Insurance Coverage vs Cancer Rate",
+     xlab = "Public Coverage %",
+     ylab = "Cancer Rate",
+     col = 4)
 abline(lm(highInc.dat$cancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
+```
 
-plot(highInc.dat$cancerRate ~ highInc.dat$PctPrivateCoverage, main = "Private Insurance Coverage vs Cancer Rate", xlab = "Private Coverage %", ylab = "Cancer Rate", col = 4)
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$PctPrivateCoverage,
+     main = "Private Insurance Coverage vs Cancer Rate",
+     xlab = "Private Coverage %",
+     ylab = "Cancer Rate",
+     col = 4)
 abline(lm(highInc.dat$cancerRate ~ highInc.dat$PctPrivateCoverage), col = 2)
+```
 
-plot(highInc.dat$cancerRate ~ highInc.dat$povertyPercent, main = "Poverty to Cancer Rate", xlab = "Poverty %", ylab = "Cancer Rate", col = 4)
+```{r}
+plot(highInc.dat$cancerRate ~ highInc.dat$povertyPercent,
+     main = "Poverty to Cancer Rate",
+     xlab = "Poverty %",
+     ylab = "Cancer Rate",
+     col = 4)
 abline(lm(highInc.dat$cancerRate ~ highInc.dat$povertyPercent), col = 2)
 ```
 
-Now let's examine cancerToDeathRate with medIncome and PctPublicCoverage.  The results are little lesser impact compare to the previous plots.  Since the data are not giving cancer motality, this results suggest there are other factors to death rate, but medIncome and PctPublicCoverage are still impacting number of cancer incident per county.
+Now let's examine deathToCancerRate with medIncome and PctPublicCoverage.  The results are little lesser impact compare to the previous plots.  Since the data are not giving cancer motality, this results suggest there are other factors to death rate, but medIncome and PctPublicCoverage are still impacting number of cancer incident per county.
 
 ```{r}
-plot(highInc.dat$cancerToDeathRate ~ highInc.dat$medIncome, main = "Median Income to Cancer to Death Rate", xlab = "Median Income", ylab = "Cancer to Death Rate", las = 1, xlim = c(120000, 30000), col = 4)
-abline(lm(highInc.dat$cancerToDeathRate ~ highInc.dat$medIncome), col = 2)
+plot(highInc.dat$deathToCancerRate ~ highInc.dat$medIncome,
+     main = "Median Income to Cancer to Death Rate",
+     xlab = "Median Income",
+     ylab = "Cancer to Death Rate",
+     las = 1,
+     xlim = c(120000, 30000),
+     col = 4)
+abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$medIncome), col = 2)
+```
 
-plot(highInc.dat$cancerToDeathRate ~ highInc.dat$PctPublicCoverage, main = "Public Insurance Coverage vs Cancer to Death Rate", xlab = "Public Coverage %", ylab = "Cancer to Death Rate", col = 4)
-abline(lm(highInc.dat$cancerToDeathRate ~ highInc.dat$PctPublicCoverage), col = 2)
+```{r}
+plot(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage,
+     main = "Public Insurance Coverage vs Cancer to Death Rate",
+     xlab = "Public Coverage %",
+     ylab = "Cancer to Death Rate",
+     col = 4)
+abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
 ```
