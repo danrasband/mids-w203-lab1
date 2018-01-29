@@ -151,24 +151,6 @@ summary(fixed.dat$deathToCancerRate)
 
 This measurement indicates a lower number of deaths per cancer incident when the ratio is low relative to other counties. Again, this isn't a direct measurement of cancer mortality, but it may give us a general idea.
 
-### Different ways to approximate cancer-death relationship
-
-```{r}
-fixed.dat$cancerToDeathRate = fixed.dat$cancerRate / fixed.dat$realDeathRate
-fixed.dat$DeathToCancerRate = 1/fixed.dat$cancerToDeathRate
-summary(fixed.dat$cancerToDeathRate)
-summary(fixed.dat$DeathToCancerRate)
-```
-
-Looking at probabilities, although here we can't say that cause of death was cancer. We define cancer mortality rate as number of deaths due to cancer (or closest possible approximation) per 100,000 population
-
-```{r}
-fixed.dat$prob_of_cancer_and_death = (fixed.dat$avgAnnCount/fixed.dat$popEst2015) *
-  ((fixed.dat$popEst2015 * fixed.dat$deathRate/100000)/fixed.dat$popEst2015)
-fixed.dat$cancer_mortality_rate=100000*(fixed.dat$prob_of_cancer_and_death * fixed.dat$popEst2015)/fixed.dat$popEst2015
-summary(fixed.dat$cancer_mortality_rate)
-```
-
 ## Exploration
 
 ### Coorelation between cancerRate and realDeathRate
@@ -353,7 +335,7 @@ corrplot(coeff)
 PctWhite and PctBlack are very highly correlated (over 0.8). We can check impact of anyone here PctWhite as PctWhite and PctBlack are the two top groups. Created an indicator to separate population with with less than 40 pct white vs 40 or more pct White. Comparing average cancer death rate between these two we see that population with less than 40pct White have higher cancer death rate (0.439) compared to that of population with over 40pct White (0.338).
 
 ```{r}
-fixed.dat$chosen_field<-fixed.dat$DeathToCancerRate
+fixed.dat$chosen_field<-fixed.dat$deathToCancerRate
 library(car)
 scatterplotMatrix(~ fixed.dat$chosen_field + fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$PctOther)
 plot(fixed.dat$PctWhite,fixed.dat$chosen_field,main="CancerDeathRate by PctWhite")
