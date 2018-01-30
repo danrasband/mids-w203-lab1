@@ -53,7 +53,7 @@ The number of counties equals the number of observations, so no county has multi
 length(unique(canc.dat$Geography)) == nrow(canc.dat)
 ```
 
-The data covers 3047 counties from all US states and the District of Columbia. As of 2016, there were 3,144 counties or county equivalents\footnote{"County (United States)", Wikipedia, https://en.wikipedia.org/wiki/County_(United_States)}, and this data set covers almost all of them.
+The data covers 3047 counties from all US states and the District of Columbia. As of 2016, there were 3,144 counties or county equivalents\footnote{“County (United States).” Wikipedia, Wikimedia Foundation, 24 Jan. 2018, \url{en.wikipedia.org/wiki/County_(United_States)}.}, and this data set covers almost all of them.
 
 ```{r}
 # Split out the county name and state.
@@ -110,7 +110,7 @@ The X column appears to be a simple auto-incremented ID, so it is ignored. Rest 
     * `PctEmpPrivCoverage`: Percentage of population with private insurance coverage from employment.
     * `PctPublicCoverage`: Percentage of population with public insurance coverage.
 
-The most questionable of the above assumptions is that of the `deathRate`, but comparing the numbers with those in a PDF of death-related statistics for Los Angeles county\footnote{"Mortality in Los Angeles County", The Office of Health Assessment and Epidemiology, http://publichealth.lacounty.gov/dca/data/documents/mortalitypresentation2012.pdf}, and by using a bit of common sense, it appears that the rate is per 100,000 people. The birth rate is similarly questionable, but by using Los Angeles's data, it appears that the number may be per 100 women, ages 15 to 44, though this is not certain.
+The most questionable of the above assumptions is that of the `deathRate`, but comparing the numbers with those in a PDF of death-related statistics for Los Angeles county\footnote{The Office of Health Assessment and Epidemiology. “Mortality in Los Angeles County.” 7 Oct. 2015, doi:\url{http://publichealth.lacounty.gov/dca/data/documents/mortalitypresentation2012.pdf}.}, and by using a bit of common sense, it appears that the rate is per 100,000 people. The birth rate is similarly questionable, but by using Los Angeles's data, it appears that the number may be per 100 women, ages 15 to 44, though this is not certain.
 
 Another fundamentally questionable aspect of the data is that most data points do not have a reference year. We are assuming 2015 for those data, but that may not be accurate. For example, `avgAnnCount` has been defined as 2009-2013 mean incidences per county while `popEst2015` is defined as of 2015. As most fields do not have an associated time period document, we will assume that cancer incidents in 2015 are similar to that of 2009-2013, which is a big assumption that can impact the robustness of the analysis.
 
@@ -260,8 +260,8 @@ boxplot(fixed.dat$cancerRate ~ fixed.dat$medIncome, main = "Median Income vs Can
 Lower medIncome and higher `PctPublicCoverage` have the most impact on `cancerRate`. Public insurance often has limited coverage for cancer treatment. Neither private insurance coverage nor poverty seem to be correlated with `cancerRate`.
 
 ```{r}
-highInc.columns = c("avgAnnCount", "cancerRate", "Geography", "medIncome", 
-                    "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", 
+highInc.columns = c("avgAnnCount", "cancerRate", "Geography", "medIncome",
+                    "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent",
                     "AvgHouseholdSize", "deathToCancerRate")
 highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250, highInc.columns]
 nrow(highInc.dat)
