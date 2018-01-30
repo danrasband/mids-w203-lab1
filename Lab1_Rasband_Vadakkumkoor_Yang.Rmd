@@ -1,168 +1,248 @@
 ---
-title: "Lab 1 Cancer EDA"
+title: "Lab 1: Cancer EDA"
 author: "Daniel Rasband, Subha Vadakkumkoor, Hong Yang"
 date: \today
-output: pdf_document
+output:
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(car)
 library(corrplot)
+library(stringr)
 ```
 
-## Problem Set
+## Introduction
+
+### Research Question
 
 We were hired by a health government agency to understand and predict cancer mortality rates:
 
 1. Understand factors that predict cancer mortality rates
 2. Identity communities for social interventions
-3. Understand which interventions are likely to have the impact
+3. Understand which interventions are likely to have impact
 
 ### Objective of this Lab
 
-Perform an exploratory analysis to understand how county-level characteristics are related to cancer mortality.
+Our task at hand is to perform an exploratory data analysis to understand how county-level characteristics are related to cancer mortality.
 
-## Data Set
+### Data Set
+
+Read the provides CSV file, cancer.csv file into an R dataframe `canc.dat`.
 
 ```{r load}
 canc.dat <- read.csv('cancer.csv', header = TRUE)
 ```
 
-### Summary
+#### Number of Observations, variables, datatypes and granularity
+
+There are 3047 observations and 30 columns in the data set. All columns are numeric or integer except Geography and binnedInc that are factors.
 
 ```{r}
-summary(canc.dat)
+dim(canc.dat)
 ```
-
-### Variables
 
 ```{r}
-names(canc.dat)
+sapply(canc.dat, class)
 ```
 
-#### Meanings
-
-The X column appears to be a simple auto-incremented ID, so it is ignored. We are assuming that the rest of the columns have the following meanings. If these assumptions prove to be incorrect, the analysis may also be incorrect.
-
-* `avgAnnCount`: Average cancer total incidences per year from 2009-2013.
-* `medIncome`: Median Income
-* `popEst2015`: Estimated population in 2015
-* `povertyPercent`: Percentage of population below poverty level
-* `binnedInc`: Income range
-* `MedianAge`: Median Age
-* `MedianAgeMale`: Median Age of Males
-* `MedianAgeFemale`: Median Age of Females
-* `Geography`: County, State
-* `AvgHouseholdSize`: Average Household Size
-* `PercentMarried`: Percent of population that is married
-* `PctNoHS18_24`: Percent of population, ages 18-24, that hasn't graduated from high school.
-* `PctHS18_24`: Percent of population, ages 18-24, that has graduated from high school.
-* `PctSomeCol18_24`: Percentage of 18-24-year-olds that have some college education.
-* `PctBachDeg18_24`: Percentage of 18-24-year-olds that have a bachelor's degree.
-* `PctHS25_Over`: Percentage of population, 25 and older, graduated from high school.
-* `PctBachDeg25_Over`: Percentage of population, 25 and older, graduated from college.
-* `PctEmployed16_Over`: Percentage of population, 16 and older, that is employed.
-* `PctUnemployed16_Over`: Percentage of population, 16 and older, that is unemployed.
-* `PctPrivateCoverage`: Percentage of population with private insurance coverage.
-* `PctEmpPrivCoverage`: Percentage of population with private insurance coverage from employment.
-* `PctPublicCoverage`: Percentage of population with public insurance coverage.
-* `PctWhite`: Percentage of population that is white.
-* `PctBlack`: Percentage of population that is black.
-* `PctAsian`: Percentage of population that is asian.
-* `PctOtherRace`: Percentage of population that is not white, black, or asian.
-* `PctMarriedHouseholds`: Percentage of the population that is in a married household.
-* `BirthRate`: The birth rate, unknown basis.
-* `deathRate`: The death rate, per 100,000 people.
-
-The most questionable of the above assumptions is that of the `deathRate`, but comparing the numbers with those in [a PDF of death-related statistics for Los Angeles county](http://publichealth.lacounty.gov/dca/data/documents/mortalitypresentation2012.pdf), and by using a bit of common sense, it appears that the rate is per 100,000 people. The birth rate is similarly questionable, but by using Los Angeles's data, it appears that the number is per 100 women, 15-44. This could be a bit of a problem since we don't know the population of women in that age range, except that we will not be using that data point in this exploratory analysis, so we will ignore it.
-
-Another fundamentally questionable aspect of the data is that most data points do not have a reference year. We are assuming 2015 for those data, but that may not be accurate.
-
-### Number of Observations
-
-There are 3047 observations in the data set.
-
-```{r}
-nrow(canc.dat)
-```
-
-The number of counties equals the number of observations, so no county has multiple rows of data.
+The number of counties equals the number of observations, so no county has multiple rows of data. This confirms that the granularity of the data is at county level.
 
 ```{r}
 length(unique(canc.dat$Geography)) == nrow(canc.dat)
 ```
 
-## Data Cleaning
+The data covers 3047 counties from all US states and the District of Columbia. As of 2016, there were 3,144 counties or county equivalents\footnote{"County (United States)", Wikipedia, https://en.wikipedia.org/wiki/County_(United_States)}, and this data set covers almost all of them.
 
-While perusing the data, we have found that there are some pieces that need to be cleaned up. First of all, the `avgAnnCount` has 206 rows that are 1) the exact same number, and 2) greater than the actual population. This indicates to us that those values were missing from the data and had been assigned a default value (`1962.668`). Because the `avgAnnCount` is crucial to this analysis, and those values have proven nonsensical, we will have to remove them:
+```{r}
+# Split out the county name and state.
+geo.dat <- as.character(canc.dat$Geography)
+split.geodata <- str_split_fixed(canc.dat$Geography, ', ', 2)
+canc.dat$county <- split.geodata[ , 1]
+canc.dat$state <- split.geodata[ , 2]
+length(unique(canc.dat$state))
+```
+
+### Data Quality and Preparation
+
+#### Data Overview
+
+Let us summarize the fields and distributions here. We will look for distribution, missing values, range and outliers and try to understand what the fields better,
+
+The X column appears to be a simple auto-incremented ID, so it is ignored. Rest of the county variables can be broadly classified as belonging to the following groups:
+
+* Census:
+    * `popEst2015`: Estimated population in 2015
+    * `BirthRate`: The birth rate, unknown basis.
+    * `deathRate`: The death rate, per 100,000 people.
+    * `avgAnnCount`: Average cancer total incidences per year from 2009-2013.
+    * `Geography`: County, State
+* Age:
+    * `MedianAge`: Median Age
+    * `MedianAgeMale`: Median Age of Males
+    * `MedianAgeFemale`: Median Age of Females
+* Income:
+    * `medIncome`: Median Income
+    * `povertyPercent`: Percentage of population below poverty level
+    * `binnedInc`: Income range
+* Household:
+    * `AvgHouseholdSize`: Average Household Size
+    * `PercentMarried`: Percent of population that is married
+    * `PctMarriedHouseholds`: Percentage of the population that is in a married household.
+* Race:
+    * `PctWhite`: Percentage of population that is white.
+    * `PctBlack`: Percentage of population that is black.
+    * `PctAsian`: Percentage of population that is asian.
+    * `PctOtherRace`: Percentage of population that is not white, black, or asian.
+* Education:
+    * `PctNoHS18_24`: Percent of population, ages 18-24, that hasn't graduated from high school.
+    * `PctHS18_24`: Percent of population, ages 18-24, that has graduated from high school.
+    * `PctSomeCol18_24`: Percentage of 18-24-year-olds that have some college education.
+    * `PctBachDeg18_24`: Percentage of 18-24-year-olds that have a bachelor's degree.
+    * `PctHS25_Over`: Percentage of population, 25 and older, graduated from high school.
+    * `PctBachDeg25_Over`: Percentage of population, 25 and older, graduated from college.
+* Employment:
+    * `PctEmployed16_Over`: Percentage of population, 16 and older, that is employed.
+    * `PctUnemployed16_Over`: Percentage of population, 16 and older, that is unemployed.
+* Insurance:
+    * `PctPrivateCoverage`: Percentage of population with private insurance coverage.
+    * `PctEmpPrivCoverage`: Percentage of population with private insurance coverage from employment.
+    * `PctPublicCoverage`: Percentage of population with public insurance coverage.
+
+The most questionable of the above assumptions is that of the `deathRate`, but comparing the numbers with those in a PDF of death-related statistics for Los Angeles county\footnote{"Mortality in Los Angeles County", The Office of Health Assessment and Epidemiology, http://publichealth.lacounty.gov/dca/data/documents/mortalitypresentation2012.pdf}, and by using a bit of common sense, it appears that the rate is per 100,000 people. The birth rate is similarly questionable, but by using Los Angeles's data, it appears that the number may be per 100 women, ages 15 to 44, though this is not certain.
+
+Another fundamentally questionable aspect of the data is that most data points do not have a reference year. We are assuming 2015 for those data, but that may not be accurate. For example, `avgAnnCount` has been defined as 2009-2013 mean incidences per county while `popEst2015` is defined as of 2015. As most fields do not have an associated time period document, we will assume that cancer incidents in 2015 are similar to that of 2009-2013, which is a big assumption that can impact the robustness of the analysis.
+
+Although the analysis relates to cancer, there is no data about the availability of hospitals or oncology specialization that are related to if and how the cancer is treated. There are no also details on the nature of cancer patients like age or gender or type of the disease, or other known cancer causing habits like smoking.
+
+As lack of data that directly or indirectly pertains to cancer will weaken the analysis and impact the outcome, a request to make these data elements available should be placed with the government agency.
+
+Looking at the range of `popEst2015`, `medIncome` and `povertyPercent`, we can see that a range of counties from small to big, rich and poor have been included in the dataset. `AvgHouseholdSize` varies from 0.02 to 3.9 which indicates both big and small families have been included.
+
+While the distribution of `PctWhite` looks even, `PctBlack` and `PctAsian` have outliers. While ~75% of the counties have a black population 10.5% , there are others that have as high as 85%. Similarly, 75% of communities have about 1% of Asian population, but some others have about 43%.  This indicates that we have different types of neighborhoods in the data, and some neighborhoods that are very different from others.
+
+## Univariate Analysis
+
+### Data Issues
+
+There are various issues with the data that require us some massaging for further analysis.
+
+The `PctSomeCol18_24` variable has a large majority of missing values, so we are opting to remove the column entirely for the dataset. This has potential to make it more difficult to find correlation between cancer death rates and educational status, but the data is too sparse to use.
+
+```{r}
+# Remove PctSomeCol18_24 completely.
+fixed.dat <- subset(canc.dat, select = -c(PctSomeCol18_24))
+'PctSomeCol18_24' %in% names(fixed.dat)
+```
+
+Field `PctEmployed16_Over` has 152 rows with missing data, but we will delete this field in our analysis and consider the missing values in the analysis.
+
+The `MedianAgeMale` and `MedianAgeFemale` fields look good but `MedianAge` has a high value of 624.00. It appears that `MedianAge` is set to months, rather than years, in a number of cases, so we adjust those rows:
+
+```{r}
+age.outliers <- fixed.dat$MedianAge > 100
+fixed.dat$MedianAge[age.outliers] <- fixed.dat$MedianAge[age.outliers] / 12
+# Sanity check
+summary(fixed.dat$MedianAge, fixed.dat$MedianAgeFemale, fixed.dat$MedianAgeMale)
+```
+
+The `avgAnnCount` variable has 206 rows that are 1) the exact same number, and 2) greater than the actual population. This indicates to us that those values were missing from the data and had been assigned a default value (`1962.668`). Because the `avgAnnCount` variable is central to this analysis, and those particular values have proven nonsensical, we will have to remove those entire rows:
 
 ```{r}
 canc.dat[canc.dat$avgAnnCount > canc.dat$popEst2015, c('X', 'avgAnnCount')]
 ```
 
+This reduces the number of observations from 3047 to 2841.
 ```{r}
-fixed.dat <- subset(canc.dat, avgAnnCount != canc.dat$avgAnnCount[116])
+fixed.dat <- subset(fixed.dat, avgAnnCount != canc.dat$avgAnnCount[116])
 nrow(fixed.dat)
 ```
 
-The `PctSomeCol18_24` variable has a large majority of missing values, so we are opting to remove the column entirely for the dataset. This has potential to make it more difficult to find correlation between cancer death rates and educational status, but the data is too sparse to use.
+Let us check if all the percentage fields related to a particular element add upto 100 to see if there are parts of the population not represented in this data and also to help better estimate what the base of the percentage calculation is.
+
+* PctHS18_24 and PctNoHS18_24 do not add upto 100 in almost all cases, just as PctEmployed16_Over and PctUnemployed16_Over do not. This means these are not percentages calculated based on the entire population.
 
 ```{r}
-fixed.dat = subset(fixed.dat, select = -c(PctSomeCol18_24))
-names(fixed.dat)
+nrow(subset(canc.dat, (canc.dat$PctHS18_24+ canc.dat$PctNoHS18_24)<100))
+summary(canc.dat$PctHS18_24+canc.dat$PctNoHS18_24)
 ```
 
-Lastly, it appears that `MedianAge` is set to months, rather than years, in a number of cases, so we adjust those rows:
-
 ```{r}
-age.outliers = fixed.dat$MedianAge > 100
-fixed.dat$MedianAge[age.outliers] = fixed.dat$MedianAge[age.outliers] / 12
-# Sanity check
-summary(fixed.dat$MedianAge, fixed.dat$MedianAgeFemale, fixed.dat$MedianAgeMale)
+nrow(subset(canc.dat, (canc.dat$PctEmployed16_Over + canc.dat$PctUnemployed16_Over) < 100))
+summary(canc.dat$PctEmployed16_Over + canc.dat$PctUnemployed16_Over)
 ```
 
-## Extra Variables
-
-Our task is to look for correlations between cancer death rate and other factors, but cancer death rate is not given. This is the biggest issue with the data and our assumption here greatly reduces the effectiveness of the exploratory data analysis. Our effort here will be to compute the rate of cancer incidents to deaths, and use that as a measure of approximately how frequent cancer causes death.
+* Race fields all add upto 100 indicating these are mutually exhaustive classifications of the data.
 
 ```{r}
-# The percentage of the population that had cancer. This may be flawed, because some people may have been diagnosed twice or more.
+nrow(subset(canc.dat, (canc.dat$PctWhite + canc.dat$PctBlack + canc.dat$PctAsian + canc.dat$OtherRate) < 100))
+```
+
+* There is a part of the data that have neither public nor private coverage, indicating a set of population who have no insurance. Also the total percents are very often greater than 100 indicating a part of population that have both private and public insurance.
+
+```{r}
+nrow(subset(canc.dat, (canc.dat$PctPrivateCoverage + canc.dat$PctPublicCoverage < 100)))
+summary(canc.dat$PctPrivateCoverage + canc.dat$PctPublicCoverage)
+```
+
+### Target Variable Analysis
+
+Our task is to look for correlations between cancer mortality rate and other factors, but cancer mortality rate is not given. This is the biggest issue with the data and our assumption here greatly reduces the effectiveness of the exploratory data analysis. Our effort here will be to compute the rate of deaths to cancer incidents, and use that as a relative indicator for how frequently cancer causes death amongst the different counties.
+
+Here we calculate the percentage of the population that had cancer. This may be flawed, because some people may have been diagnosed twice or more.
+
+```{r}
 fixed.dat$cancerRate = fixed.dat$avgAnnCount / fixed.dat$popEst2015
 summary(fixed.dat$cancerRate)
 ```
 
-Cancer incidents are very strongly correlated with populations, which means that the more people, the more cancer incidents.
+Cancer incidents are very strongly correlated with population, which means that the more people, the more cancer incidents.
 
 ```{r}
 cor(fixed.dat$avgAnnCount, fixed.dat$popEst2015)
 ```
 
+As we believe that deathRate is per 100,000 people, here we calculate the death rate for the county's population and we will call this realDeathRate.
+
 ```{r}
 # The percentage of each population that died.
-fixed.dat$realDeathRate = fixed.dat$deathRate / 100000
+fixed.dat$realDeathRate<- (fixed.dat$popEst2015 * fixed.dat$deathRate / 100000)/fixed.dat$popEst2015
 summary(fixed.dat$realDeathRate)
 ```
 
+Although we saw a strong correlation between the cancer rate and population, we do not see the same between death rates and population. This indicates that there are several causes of death that vary noticeably by county. This weakens our efforts to get to cancer mortality rate.
+
 ```{r}
-# The ratio of deaths (of any kind) to cancer incidents
-fixed.dat$deathToCancerRate = fixed.dat$realDeathRate / fixed.dat$cancerRate
+cor(fixed.dat$deathRate, fixed.dat$popEst2015)
+```
+
+In the absence of accurate mortality rates due to cancer, we calculate our best possible approximation as the rate of deaths to cancer. In other words estimate how many death occur per cancer incidence. It ranges from 0.15 to 1.45, which is a very wide range. Also there are counties with our estimated cancer mortality rate greater than 1, indicating more deaths than cancer, which goes back to having the cause of death unavailable.
+
+```{r}
+fixed.dat$deathToCancerRate <- fixed.dat$realDeathRate / fixed.dat$cancerRate
 summary(fixed.dat$deathToCancerRate)
 ```
 
-### Income / Poverty & Insurance Coverage
+## Analysis of Key Relationships
 
-When cancerRate is high, PctPublicCoverage is high and medIncome is relativly low, we will further examine them.  We also noticed that public coverage and private coverage seem mutually exclusive.
+Now that we have looked at each variable, cleaned the data and defined our target variable, let us examine bivariate relationships. As we have fields representing various characteristics of the county population, we will look at the relationships with the target variable, a few at a time
+
+### Income, Poverty & Insurance Coverage
+
+When cancerRate is high, PctPublicCoverage is high and medIncome is relativly low, we will further examine them. We also noticed that public coverage and private coverage seem mutually exclusive.
 
 ```{r}
 cor(fixed.dat[ , c("cancerRate","PctPrivateCoverage","PctPublicCoverage","povertyPercent", "medIncome")], use = "complete.obs")
 ```
 
-This initial examination shows there are indication that PctPublicCoverage and medIncome have impact on cancerRate, especailly few outliers.  Other variables don't have much strong impact from these plots.  We will examine further.
+This initial examination shows that `PctPublicCoverage` and `medIncome` are correlated with `cancerRate`.  Other variables don't have much strong impact from these plots.
 
 ```{r}
 hist(fixed.dat$cancerRate, main = "Cancer Rate", xlab = NULL)
 ```
+
+Public insurance coverage is somewhat correlated with the cancer rate.
 
 ```{r}
 boxplot(fixed.dat$cancerRate ~ fixed.dat$PctPublicCoverage,
@@ -171,34 +251,21 @@ boxplot(fixed.dat$cancerRate ~ fixed.dat$PctPublicCoverage,
         ylab = "Cancer Rate")
 ```
 
+Income, however, is not strongly correlated with the cancer rate.
+
 ```{r}
 boxplot(fixed.dat$cancerRate ~ fixed.dat$medIncome, main = "Median Income vs Cancer Rate", xlab = "Median Income", ylab = "Cancer Rate")
 ```
 
-```{r}
-plot(fixed.dat$PctPublicCoverage, main = "Public Insurance Coverage")
-```
+Lower medIncome and higher `PctPublicCoverage` have the most impact on `cancerRate`. Public insurance often has limited coverage for cancer treatment. Neither private insurance coverage nor poverty seem to be correlated with `cancerRate`.
 
 ```{r}
-plot(fixed.dat$PctPrivateCoverage, main = "Private Insurance Coverage")
-```
-
-```{r}
-hist(fixed.dat$povertyPercent, breaks = 10, xlab = NULL, main = "Poverty Percentage")
-```
-
-Based on the fact that we are examine the variables which are impacting high cancer rate, we will take a closer look at the data for avgAnnCount greater than 250. 250 cancer incidents per county anually is still relatively high, we pick this number because it's between median and mean and closer to median. The mean is much higher than the median indicates the one plus few more extreamly high cancer incident numbers, by selecting the data above the mean will miss the chance with most representative data.
-
-```{r}
-summary(fixed.dat$avgAnnCount)
-```
-
-```{r}
-highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250,c("avgAnnCount", "cancerRate", "Geography", "medIncome", "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", "AvgHouseholdSize", "deathToCancerRate")]
+highInc.columns = c("avgAnnCount", "cancerRate", "Geography", "medIncome", 
+                    "PctPublicCoverage", "PctPrivateCoverage", "povertyPercent", 
+                    "AvgHouseholdSize", "deathToCancerRate")
+highInc.dat = fixed.dat[fixed.dat$avgAnnCount > 250, highInc.columns]
 nrow(highInc.dat)
 ```
-
-Lower medIncome and higher PctPublicCoverage have the most impact on cancerRate.  Public incurance often have limited coverage for cancer treatment.  Private coverage doesn't seem to have strong impact on cancerRate as well as povertyPercent.
 
 ```{r}
 plot(highInc.dat$cancerRate ~ highInc.dat$medIncome,
@@ -238,7 +305,7 @@ plot(highInc.dat$cancerRate ~ highInc.dat$povertyPercent,
 abline(lm(highInc.dat$cancerRate ~ highInc.dat$povertyPercent), col = 2)
 ```
 
-Now let's examine deathToCancerRate with medIncome and PctPublicCoverage.  The results are little lesser impact compare to the previous plots.  Since the data are not giving cancer motality, this results suggest there are other factors to death rate, but medIncome and PctPublicCoverage are still impacting number of cancer incident per county.
+Now let's examine deathToCancerRate with medIncome and PctPublicCoverage. The results are less correlated compare to the previous plots.  Since the data are not a direct cancer motality, the results suggest there are other factors to death rate, but `medIncome` and `PctPublicCoverage` are still correlated with cancer incident per county.
 
 ```{r}
 plot(highInc.dat$deathToCancerRate ~ highInc.dat$medIncome,
@@ -260,91 +327,78 @@ plot(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage,
 abline(lm(highInc.dat$deathToCancerRate ~ highInc.dat$PctPublicCoverage), col = 2)
 ```
 
-### Employment & Race
+### Race
 
-Need to add imputation of missing values of field PctEmployed16_Over.
-Looks like PctSomeCol18_24 has text "NA" as opposed to N/A.
+We will now look at the race based fields `PctWhite`, `PctBlack`, `PctAsian`, `PctOtherRace`.
 
-##  Data Understanding and Sanity checks
+`PctWhite` and `PctBlack` are very highly correlated (over 0.8) and as we saw before, all race related fields are mutually exhaustive. Based on correlation coefficents, none of the race fields have a strong positive or negative linear correlation (>0.5) with the cancer mortality rates.
 
-There are no cases where avgConnCount is greater than the population. Although avgAnnCount is from 2009-2013 and popEst2015 is from 2015, this provides better confidence in the avgConnCount field
-
-```{r}
-nrow(subset(fixed.dat,avgAnnCount>popEst2015))
-```
-
-There are several values of binnedInc and Geography that average of cancer counts or death rates cannot be calculated for each group as is.
+As can be seen below, relationship of a field with cancerRate and with deathToCancerRate are reverse. For example, PctWhite has -0.37 correlation with deathtocancerrate but 0.27 with cancer rate. While this might make one think that counties with higher white population are more likely to get cancer but less likely to have a cancer mortality, it might be a play of numbers here, and because of how deathToCancerRate is calculated (we have cancerRate in the denominator and a very weakly correlated deathRate in the numerator)
 
 ```{r}
-length(fixed.dat$binnedInc)
+cor(fixed.dat[ , c("cancerRate","PctWhite","PctBlack","PctAsian", "PctOtherRace")], use = "complete.obs")
 ```
-
-Histograms of all numeric fields are plotted below.
 
 ```{r}
-numeric_columns <- sapply(fixed.dat, is.numeric)
-data_to_plot <- names(fixed.dat[,numeric_columns])
-for (var in data_to_plot)
-{
-  hist(fixed.dat[ , var],main=var)
-}
+cor(fixed.dat[ , c("deathToCancerRate","PctWhite","PctBlack","PctAsian", "PctOtherRace")], use = "complete.obs")
 ```
 
-Create indicator for population percent without public or private insurance
+Since `PctWhite` is the dominant field we can begin by looking at this field in more detail. We can see that predominant data has a higher PctWhite population. Since we see higher cancer rates at lower values of PctWhite, we could explore that further.
 
 ```{r}
-fixed.dat$No_insurance<-100-(fixed.dat$PctPrivateCoverage+fixed.dat$PctPublicCoverage)
+plot(fixed.dat$PctWhite,fixed.dat$deathToCancerRate,main="Cancer Death Rate by PctWhite")
 ```
 
-Percentage fields related to race are mutually exhaustive and show that data is complete in this regard
+Let us create an indicator to segment populations based on pct of white population and compare the mean cancer mortality rates. We can see populations with less than 40pct whites have a higher cancer mortality rate. We do not know yet if these are statistically significant differences, but that is outside the scope of this EDA analysis.
 
 ```{r}
-nrow(subset(fixed.dat, (100-fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$OtherRate)<0))
+fixed.dat$PctWhite_Segment<-"40 or more PctWhite"
+fixed.dat$PctWhite_Segment[fixed.dat$PctWhite<40]<-"Less than 40 PctWhite"
+aggregate(fixed.dat$deathToCancerRate,list(fixed.dat$PctWhite_Segment),mean)
 ```
 
-#### Exploring relationship between variables with cancer mortality
-
-To get a better understanding of the data in hand and how the different variables are related to each other (and cancer death rate), we do a correlation analysis. Below is a short summary
-
-1. avgAnnCount is highly correlated to popEst2015 (0.98)
-2. medIncome is  correlated negatively to povertyPercent (-0.78) and PctPublicCoverage, and positively correlated to PctBachDeg25_Over,  PctEmployed16_Over, PctPrivateCoverage, PctEmpPrivCoverage (~0.7). These make intuitive sense.
-3. MedianAge, MedianAgeMale and MedianAgeFemale are all highly correlated to each other, with over 0.9 Rsquared
-4. povertyPercent is negatively correlated to PercentMarried and PercentMarriedHouseholds with an R-square of -0.6
-5. PctBachDeg25_Over and PctBachDeg18_24 are positively correlated at 0.6 R-square
-6. PctHS25_Over and PctBachDeg25_Over are negatively correlated with -0.6 R-square. This is not intuitive
-7. PctMarried is positively correlated with PctWhite and negatively with PctBlack
+Let us check PctBlack against cancer mortality rate.
 
 ```{r}
-numeric_cols<-sapply(fixed.dat, is.numeric)
-coeff<-round(corr_coeff<-cor(fixed.dat[,numeric_cols],use="pairwise.complete.obs"),3)
-corrplot(coeff)
+plot(fixed.dat$PctBlack,fixed.dat$deathToCancerRate,main="Cancer Death Rate by PctBlack")
 ```
 
-#### Impact of race related variables on cancer death rate
-
-PctWhite and PctBlack are very highly correlated (over 0.8). We can check impact of anyone here PctWhite as PctWhite and PctBlack are the two top groups. Created an indicator to separate population with with less than 40 pct white vs 40 or more pct White. Comparing average cancer death rate between these two we see that population with less than 40pct White have higher cancer death rate (0.439) compared to that of population with over 40pct White (0.338).
+We can see most populations have a low rate of PctBlack. Segmenting by a rough threhsold of 15 PctBlack, we see that counties with more than 20pct black have a slightly higher cancer mortality rate, but the difference is not very high (without testing for statistical significance or running any other population comparison tests)
 
 ```{r}
-fixed.dat$chosen_field<-fixed.dat$deathToCancerRate
-library(car)
-scatterplotMatrix(~ fixed.dat$chosen_field + fixed.dat$PctWhite + fixed.dat$PctBlack + fixed.dat$PctAsian + fixed.dat$PctOther)
-plot(fixed.dat$PctWhite,fixed.dat$chosen_field,main="CancerDeathRate by PctWhite")
-fixed.dat$Atleast_40pct_White<-1
-fixed.dat$Atleast_40pct_White[fixed.dat$PctWhite<40]<-0
-aggregate(fixed.dat$chosen_field,list(fixed.dat$Atleast_40pct_White),mean)
+fixed.dat$PctBlack_Segment<-"15 or more PctBlack"
+fixed.dat$PctBlack_Segment[fixed.dat$PctBlack<15]<-"Less than 15 PctBlack"
+aggregate(fixed.dat$deathToCancerRate,list(fixed.dat$PctBlack_Segment),mean)
 ```
 
-#### Impact of education related variables on cancer death rate
+PctAsian and PctOtherRace do not seem to have any noticeable pattern with cancer mortality rate.
 
-Looking at scatter plots and corelations, it does not seem like education has any key role in influencing cancer death rates. There may be an indirect way of how higher education would mean a higher income and better insurance, but that is not captured in the relationship between the education fields and the cancer death rate
+```{r}
+plot(fixed.dat$PctAsian,fixed.dat$deathToCancerRate,main="Cancer Death Rate by PctAsian")
+plot(fixed.dat$PctOtherRace,fixed.dat$deathToCancerRate,main="Cancer Death Rate by PctOtherRace")
+```
+
+### Education
+
+We will now cover the variables related to education.
+
+It does not seem like education has any key role in influencing cancer death rates.
 
 ```{r}
 edu_fields<-c("PctBachDeg25_Over","PctNoHS18_24","PctNoHS18_24","PctHS18_24","PctBachDeg18_24","PctHS25_Over")
-scatterplotMatrix(~ chosen_field + PctBachDeg25_Over + PctNoHS18_24 + PctHS18_24 + PctBachDeg18_24 + PctHS25_Over  , data = fixed.dat)
-round(cor(fixed.dat$chosen_field,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
+scatterplotMatrix(~ deathToCancerRate + PctBachDeg25_Over + PctNoHS18_24 + PctHS18_24 + PctBachDeg18_24 + PctHS25_Over  , data = fixed.dat)
+round(cor(fixed.dat$deathToCancerRate,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
 ```
 
-### Family Structure
+Intuitively, one would imagine a higher education would mean better income, better insurance coverage and access to more expensive treatment and thus lower cancer mortality rate, but the data does not seem to capture that. We can see that the PctBachDeg25_Over has high correlation to medIncome, PctPrivateCoverage and PctPrivateCoverage indicating that more educated people have better and private coverage, but this does not translate to lower cancer mortality rates as per the data.
+
+```{r}
+round(cor(fixed.dat$medIncome,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
+round(cor(fixed.dat$PctPrivateCoverage,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
+round(cor(fixed.dat$PctEmpPrivCoverage,fixed.dat[,edu_fields],use="pairwise.complete.obs"),3)
+```
+
+### Family Structure & Age
 
 There are two three variables related to family structure: `AvgHouseholdSize`, `PercentMarried`, `PctMarriedHouseholds`.
 
@@ -353,7 +407,7 @@ There are two three variables related to family structure: `AvgHouseholdSize`, `
 boxplot(fixed.dat$AvgHouseholdSize)
 ```
 
-Average household size is close 0 for many observations, but really these numbers shouldn't be less than 1. Instead of making some assumption about what the reasoning is for these numbers, we can remove them from this particular set of analyses.
+Average household size is close 0 for 57 observations, but really these numbers shouldn't be less than 1. Instead of making some assumption about what the reasoning is for these numbers, we will opt to remove them from this particular set of analyses.
 
 ```{r}
 household.dat <- subset(fixed.dat, AvgHouseholdSize >= 1)
@@ -416,3 +470,15 @@ cor(fixed.dat$PercentMarried, fixed.dat$MedianAge)
 ```
 
 Again, as ages increase, the percentage of married people increases, so the two are dependent, and cancer mortality rates can't necessarily be attributed to marriage or age alone.
+
+## Analysis of Secondary Effects
+
+> What secondary variables might have confounding effects on the relationships you have identified?  Explain how these variables affect your understanding of the data.
+
+## Conclusion
+
+> Summarize your exploratory analysis. What can you conclude based on your analysis?
+
+In conclusion, this analysis has attempted to explore per-county cancer data to look at characteristics that may have impact on cancer mortality rates. The data provided has some minor housekeeping issues, but those issues were mostly handled easily. The biggest problem with the data given our task at hand is that there is no way to find an exact cancer mortality rate. The only semblance of such a value was a deaths-to-cancer-incidents percentage. This percentage is most likely very misleading, as there are much more prevalent causes of death in many communities. The second biggest issue is that the eventual objective of this assigment is to look for "social interventions" that could be implemented, but there are many more data points that could be useful in terms of possible social interventions, assuming correlation.
+
+Despite the pitfalls of the data, and based on our analysis, there do appear to be correlations between the death-to-cancer rate in a county to things such as age (which should be obvious), insurance, and race. Higher rates of public insurance are correlated with lower death-to-cancer rates. Counties with less than a 40% white population have higher cancer rates and could be considered for some sort of intervention. Education and household status don't seem to have a direct correlation to death-to-cancer rates.
